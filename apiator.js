@@ -1096,37 +1096,51 @@
 			throw "URL is not a string: " + url.toString();
 		}
 
-		let regExp = /^(?:([A-Za-z]+):)?(\/{0,3})([0-9.\-A-Za-z]+)(?::(\d+))?(?:\/([^?#]*))?(?:\?([^#]*))?(?:#(.*))?$/;
+		let regExp = /^((?:([A-Za-z]+):\/{1,3})([0-9.\-A-Za-z]+)(?::(\d+))?)?(?:\/([^?#]*))?(?:\?([^#]*))?(?:#(.*))?$/;
+		// let regExp = /((([A-Za-z]{3,9}:(?:\/\/)?)(?:[\-;:&=\+\$,\w]+@)?[A-Za-z0-9\.\-]+|(?:www\.|[\-;:&=\+\$,\w]+@)[A-Za-z0-9\.\-]+)((?:\/[\+~%\/\.\w\-_]*)?\??(?:[\-\+=&;%@\.\w_]*)#?(?:[\.\!\/\\\w]*))?)/;
 		let parts = regExp.exec(url);
+		console.log(parts);
 		let urlObj = {
-			protocol: parts[1],
-			fqdn: parts[3],
-			port: parts[4],
-			path: parts[5],
+			protocol: parts[1]?parts[1]:null,
+			fqdn: parts[3]?parts[3]:null,
+			port: parts[4]?parts[4]:null,
+			path: parts[5]?parts[5]:null,
 			parameters: parts[6]?parts[6]:"",
 			fragment: parts[7],
 			toString: function () {
 				let str = "";
-				if(this.protocol && this.fqdn)
-					str += this.protocol+"://"+this.fqdn;
-				if(this.port)
+				if(this.protocol && this.fqdn) {
+					str += this.protocol + "://" + this.fqdn;
+				}
+
+				if(this.port) {
 					str += this.port;
-				if(this.fqdn)
-					str +=  "/";
-				if(this.path)
+				}
+
+				if(this.fqdn) {
+					str += "/";
+				}
+
+				if(this.path) {
 					str += this.path;
+				}
+
 				if(this.parameters) {
 					str += "?" + this.parameters.toString();
 				}
+
 				if(this.fragment)
 					str += "#"+this.fragment;
+
 				return str;
 			}
 		};
 
+		console.log(urlObj);
 
-		if(parts[1]===undefined) {
-			urlObj.path = parts[2]+parts[3]+"/"+parts[5];
+
+		if(urlObj.protocol===undefined) {
+			urlObj.path = (parts[2]?parts[2]:"")+parts[3]+"/"+parts[5];
 			urlObj.protocol = null;
 			urlObj.fqdn = null;
 			urlObj.port = null;
