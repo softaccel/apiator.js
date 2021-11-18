@@ -1101,7 +1101,7 @@
 		let parts = regExp.exec(url);
 		console.log(parts);
 		let urlObj = {
-			protocol: parts[1]?parts[1]:null,
+			protocol: parts[2]?parts[2]:null,
 			fqdn: parts[3]?parts[3]:null,
 			port: parts[4]?parts[4]:null,
 			path: parts[5]?parts[5]:null,
