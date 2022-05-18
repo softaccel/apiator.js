@@ -1,0 +1,19 @@
+{
+  "name": "apiator",
+  "version": "1.0.0",
+  "description": "DBAPI Client JQuery Plugin",
+  "main": "apiator.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vsergione/apiator.js.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/vsergione/apiator.js/issues"
+  },
+  "homepage": "https://github.com/vsergione/apiator.js#readme"
+}
