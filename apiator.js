@@ -1,7 +1,109 @@
 
 
-
 (function ($) {
+	var escapes = {
+		"'": "'",
+		'\\': '\\',
+		'\r': 'r',
+		'\n': 'n',
+		'\u2028': 'u2028',
+		'\u2029': 'u2029'
+	};
+
+	var escapeRegExp = /\\|'|\r|\n|\u2028|\u2029/g;
+
+	function escapeChar(match) {
+		return '\\' + escapes[match];
+	}
+
+// JavaScript micro-templating, similar to John Resig's implementation.
+// Underscore templating handles arbitrary delimiters, preserves whitespace,
+// and correctly escapes quotes within interpolated code.
+// NB: `oldSettings` only exists for backwards compatibility.
+	function template(text, settings, oldSettings) {
+		if (!settings && oldSettings) settings = oldSettings;
+		let tplSettings = {
+			evaluate: /<%([\s\S]+?)%>/g,
+			interpolate: /<%=([\s\S]+?)%>/g,
+			escape: /<%-([\s\S]+?)%>/g
+		};
+		if(!settings) {
+			settings = {};
+		}
+		Object.assign(settings,tplSettings);
+		if(!settings.evaluate) {
+			settings.evaluate = tplSettings;
+		}
+		if(!settings.interpolate) {
+			settings.interpolate = tplSettings;
+		}
+		if(!settings.escape) {
+			settings.escape = tplSettings;
+		}
+
+		// settings = defaults({}, settings, _$1.templateSettings);
+
+		// Combine delimiters into one regular expression via alternation.
+		var matcher = RegExp([
+			(settings.escape || noMatch).source,
+			(settings.interpolate || noMatch).source,
+			(settings.evaluate || noMatch).source
+		].join('|') + '|$', 'g');
+
+		// Compile the template source, escaping string literals appropriately.
+		var index = 0;
+		var source = "__p+='";
+		text.replace(matcher, function(match, escape, interpolate, evaluate, offset) {
+			source += text.slice(index, offset).replace(escapeRegExp, escapeChar);
+			index = offset + match.length;
+
+			if (escape) {
+				source += "'+\n((__t=(" + escape + "))==null?'':_.escape(__t))+\n'";
+			} else if (interpolate) {
+				source += "'+\n((__t=(" + interpolate + "))==null?'':__t)+\n'";
+			} else if (evaluate) {
+				source += "';\n" + evaluate + "\n__p+='";
+			}
+
+			// Adobe VMs need the match returned to produce the correct offset.
+			return match;
+		});
+		source += "';\n";
+
+		var argument = settings.variable;
+		if (argument) {
+			// Insure against third-party code injection. (CVE-2021-23358)
+			if (!bareIdentifier.test(argument)) throw new Error(
+				'variable is not a bare identifier: ' + argument
+			);
+		} else {
+			// If a variable is not specified, place data values in local scope.
+			source = 'with(obj||{}){\n' + source + '}\n';
+			argument = 'obj';
+		}
+
+		source = "var __t,__p='',__j=Array.prototype.join," +
+			"print=function(){__p+=__j.call(arguments,'');};\n" +
+			source + 'return __p;\n';
+
+		var render;
+		try {
+			render = new Function(argument, '_', source);
+		} catch (e) {
+			e.source = source;
+			throw e;
+		}
+
+		var template = function(data) {
+			return render.call(this, data, _$1);
+		};
+
+		// Provide the compiled source as a convenience for precompilation.
+		template.source = 'function(' + argument + '){\n' + source + '}';
+
+		return template;
+	}
+
 	FrontBone = {};
 	let itemsArr = {};
 	let db = {};
@@ -154,72 +256,6 @@
 			return deepmerge(prev, next, optionsArgument);
 		})
 	};
-
-
-	/**
-	 *
-	 * @param eventNames
-	 * @returns {{}}
-	 * @constructor
-	 */
-	function EventsEmitter(eventNames)
-	{
-		if(typeof eventNames!=="object" )
-			throw "Invalid Events Emiter initializer";
-
-		let ee = {
-		};
-
-		let events = {};
-		if(eventNames.constructor===Array)
-			eventNames.forEach(function(eventName){
-				events[eventName] = [];
-			});
-		else
-			Object.getOwnPropertyNames(eventNames).forEach(function(eventName){
-				events[eventName] = eventNames[eventName];
-			});
-
-		/**
-		 *
-		 * @param eventName
-		 * @param event
-		 */
-		ee.dispatch = function (eventName,event) {
-
-			if(!events.hasOwnProperty(eventName))
-				return;
-			event.type = eventName;
-			events[eventName].forEach(function (listener) {
-				(async function(listener) {
-					listener(event);
-				})(listener);
-			});
-		};
-
-		/**
-		 *
-		 * @param eventName
-		 * @param listener
-		 */
-		ee.on = function (eventName,listener) {
-			if(!events.hasOwnProperty(eventName))
-				return;
-			events[eventName].push(listener);
-		};
-
-		/**
-		 *
-		 * @param eventName
-		 */
-		ee.off = function (eventName) {
-			if(!ee.hasOwnProperty(eventName))
-				return;
-			events[eventName] = [];
-		};
-
-		return ee;
-	}
 
 
 	/**
@@ -437,10 +473,6 @@
 			strict: false
 		};
 
-
-		let eventTypes = ['load'];
-		Object.assign(_item,EventsEmitter(eventTypes));
-
 		Object.assign(_item,parseOptions(options));
 		let storage = Storage();
 
@@ -544,10 +576,9 @@
 		 *
 		 * @param view
 		 */
-		_item.bindView = function(view) {
+		_item.bindView = function(view,returnView) {
 
 			view = ItemView(view);
-			// console.log("55555555555555555",view);
 
 			let bound = false;
 			_item.views.forEach(function (v) {
@@ -562,7 +593,9 @@
 			}
 			view.item = _item;
 			_item.views.push(view);
-			return this;
+			if(returnView)
+				return view;
+			return  this;
 		};
 
 		/**
@@ -816,7 +849,17 @@
 		/**
 		 * delete item
 		 */
-		_item.delete = function () {
+		_item.delete = function (sync=true) {
+			if(!sync) {
+				console.log("do not sync");
+				return new Promise(function (resolve, reject) {
+					_item.remove();
+					resolve();
+				})
+			}
+
+			console.log("remove from server");
+
 			return new Promise((resolve,reject) => {
 				// set deleteUrl
 				_item.deleteUrl = _item.deleteUrl  ? _item.deleteUrl : _item.url + "/" + _item.id;
@@ -837,7 +880,7 @@
 
 					)
 					.catch(reject)
-					// .finally(()=>{console.log("finaly",arguments)});
+				// .finally(()=>{console.log("finaly",arguments)});
 			});
 
 		};
@@ -913,27 +956,44 @@
 
 		// capture form submit event and redirect it to callback
 		captureFormSubmit: function(form,cb) {
-			if($(form).prop("tagName")!=="FORM" || typeof cb!=="function")
+			let $form = $(form);
+			if($form.prop("tagName")!=="FORM" || typeof cb!=="function")
 				return null;
 
 
 			// setup submit processing
-			$(form).off("submit").on("submit",function(event) {
+			$form.off("submit").on("submit",function(event) {
 				// console.log("form submit triggered",event);
 				event.preventDefault();
-				let frm = $(form)[0];
+				form = $form[0];
 				let formElements = {};
-				Object.getOwnPropertyNames( frm.elements).forEach(function (item) {
-					let $item = $(frm.elements[item]);
+				Object.getOwnPropertyNames( form.elements).forEach(function (item) {
+					let $item = $(form.elements[item]);
 					if(!$item.attr("name") || $item.attr("name")==="")
 						return;
 					formElements[$item.attr("name")] = $item.val();
 				});
 				// console.log(formElements,"////////////////",cb);
 
-				cb(formElements);
+				cb(utilities.extractFormData(form),form);
 			});
+		},
+		/**
+		 *
+		 * @param form HTML Form element
+		 */
+		extractFormData: function (form) {
+			let formElements = {};
+			Object.getOwnPropertyNames( form.elements).forEach(function (item) {
+				let $item = $(form.elements[item]);
+				if(!$item.attr("name") || $item.attr("name")==="")
+					return;
+				formElements[$item.attr("name")] = $item.val();
+			});
+			return formElements;
 		}
+
+
 
 	};
 
@@ -963,7 +1023,9 @@
 				.replace(/%&gt;/gi, "%>")
 				.replace(/&amp;/gi, "&");
 
+			// console.log("bindview",html);
 			params = {
+				// template: template(html),
 				template: _.template(html),
 				el: $el
 			};
@@ -1000,15 +1062,15 @@
 		Object.assign(tmp,_itemview);
 
 		// todo: remove this check in future release
-		if (!_itemview.template) {
-			throw "Invalid ItemView template";
-		}
-
-		let eventTypes = ['render','reset'];
-		Object.assign(_itemview,EventsEmitter(eventTypes));
-
+		// if (!_itemview.template) {
+		// 	throw "Invalid ItemView template";
+		// }
 
 		function createElementFromTemplate() {
+			if(_itemview.template==null) {
+				console.log('Warning: no template defined. Nothing to render');
+				return null;
+			}
 			let el = $(_itemview.template(_itemview.item))
 				.attr("data-type","item")
 				.attr("id", _itemview.id)
@@ -1038,6 +1100,9 @@
 		_itemview.render = function (returnView) {
 
 			let renderedEl = createElementFromTemplate();
+			if(!renderedEl) {
+				return null;
+			}
 
 			if(returnView) {
 				this.el = renderedEl;
@@ -1050,6 +1115,7 @@
 				console.log("Invalid item view element");
 				return null;
 			}
+
 
 			renderedEl.insertBefore(this.el[0]);
 
@@ -1096,55 +1162,61 @@
 			throw "URL is not a string: " + url.toString();
 		}
 
-		let regExp = /^((?:([A-Za-z]+):\/{1,3})([0-9.\-A-Za-z]+)(?::(\d+))?)?(?:\/([^?#]*))?(?:\?([^#]*))?(?:#(.*))?$/;
-		// let regExp = /((([A-Za-z]{3,9}:(?:\/\/)?)(?:[\-;:&=\+\$,\w]+@)?[A-Za-z0-9\.\-]+|(?:www\.|[\-;:&=\+\$,\w]+@)[A-Za-z0-9\.\-]+)((?:\/[\+~%\/\.\w\-_]*)?\??(?:[\-\+=&;%@\.\w_]*)#?(?:[\.\!\/\\\w]*))?)/;
+		let regExp = /^((?:([a-z]+):)([\/]{2,3})([\w\.\-\_]+)(?::(\d+))?)?(?:(\/?[^?#]*))?(?:\?([^#]*))?(?:#(.*))?$/i;
 		let parts = regExp.exec(url);
-		console.log(parts);
+
 		let urlObj = {
-			protocol: parts[2]?parts[2]:null,
-			fqdn: parts[3]?parts[3]:null,
-			port: parts[4]?parts[4]:null,
-			path: parts[5]?parts[5]:null,
-			parameters: parts[6]?parts[6]:"",
-			fragment: parts[7],
+			protocol: null,
+			fqdn: null,
+			port: null,
+			path: null,
+			parameters: null,
+			fragment: null,
 			toString: function () {
+				// return url;
 				let str = "";
 				if(this.protocol && this.fqdn) {
-					str += this.protocol + "://" + this.fqdn;
-				}
-
-				if(this.port) {
-					str += this.port;
-				}
-
-				if(this.fqdn) {
-					str += "/";
+					str += this.protocol+"://"+this.fqdn;
+					if(this.port) {
+						str += this.port;
+					}
 				}
 
 				if(this.path) {
 					str += this.path;
 				}
-
 				if(this.parameters) {
 					str += "?" + this.parameters.toString();
 				}
-
-				if(this.fragment)
-					str += "#"+this.fragment;
-
+				if(this.fragment) {
+					str += "#" + this.fragment;
+				}
 				return str;
 			}
 		};
 
-		console.log(urlObj);
-
-
-		if(urlObj.protocol===undefined) {
-			urlObj.path = (parts[2]?parts[2]:"")+parts[3]+"/"+parts[5];
-			urlObj.protocol = null;
-			urlObj.fqdn = null;
-			urlObj.port = null;
+		if(typeof parts[2]!=="undefined") {
+			urlObj.protocol = parts[2];
 		}
+		if(typeof parts[4]!=="undefined") {
+			urlObj.fqdn = parts[4];
+		}
+		if(typeof parts[5]!=="undefined") {
+			urlObj.port = parts[5];
+		}
+		if(typeof parts[6]!=="undefined") {
+			urlObj.path = parts[6];
+		}
+		if(typeof parts[7]!=="undefined") {
+			urlObj.parameters = parts[7];
+		}
+		if(typeof parts[8]!=="undefined") {
+			urlObj.fragment = parts[8];
+		}
+
+
+
+		// if(urlObj.)
 
 		if(urlObj.parameters) {
 			let tmp = urlObj.parameters.split("&");
@@ -1172,9 +1244,46 @@
 			return paras.join("&");
 		};
 
+
 		return urlObj;
 	}
 
+	function CustomEvent(type,target,other) {
+		this.target = target;
+		this.type = type;
+		if(other && typeof other==='object' && other.constructor===Object) {
+			Object.assign(this,other);
+		}
+	}
+
+	/**
+	 *
+	 * @constructor
+	 */
+	function EventEmitter() {
+		let eventListeners = {};
+
+		this.on = function (eventName,cb) {
+			if(!eventListeners.hasOwnProperty(eventName)) {
+				eventListeners[eventName] = [];
+			}
+			eventListeners[eventName].push(cb);
+			return this;
+		};
+
+		this.trigger = function(eventName,other) {
+			// console.log('inplaceofevent',this);
+			let instance = this;
+
+			if(!eventListeners.hasOwnProperty(eventName)) {
+				return;
+			}
+
+			eventListeners[eventName].forEach(function (cb) {
+				cb(new CustomEvent(eventName,instance,other))
+			});
+		}
+	}
 	/**
 	 *
 	 * @param opts
@@ -1182,6 +1291,7 @@
 	 */
 	function Collection(opts)
 	{
+
 		let _collection = {
 			url: null,
 			deleteUrl: null,
@@ -1199,6 +1309,8 @@
 			items: [],
 		};
 
+		EventEmitter.call(_collection);
+
 		_collection.setPageSize = function(val) {
 			if(/^\d+$/.test(val)) {
 				_collection.pageSize = val;
@@ -1214,6 +1326,14 @@
 			}
 			return false;
 
+		};
+
+		/**
+		 * bulk update
+		 * @param data
+		 */
+		_collection.update = function(data) {
+			throw "Not implemented... yet";
 		};
 
 		_collection.setUrl = function(url) {
@@ -1246,9 +1366,6 @@
 		};
 		opts = parseOptions(opts);
 
-
-		let eventTypes = ['load'];
-		Object.assign(_collection,EventsEmitter(eventTypes));
 
 		Object.assign(_collection,opts);
 
@@ -1301,11 +1418,13 @@
 					appendItemToCollection(_collection,_collection.loadItem(item));
 				});
 
+				this.trigger("load",{data: data});
 				return _collection.render();
 			}
 
 			// received data is an item => add it
 			if(data.constructor===Object) {
+				this.trigger("load",{data: data});
 				return  appendItemToCollection(_collection,_collection.loadItem(data),true);
 			}
 
@@ -1323,8 +1442,10 @@
 		 * @param data
 		 */
 		_collection.loadFromData = function (data) {
-			if (data.constructor !== Array)
+			if (data.constructor !== Array) {
+				console.log(data);
 				throw "Invalid data type received. Should be an array.";
+			}
 
 			if(_collection.navtype==="page")
 				_collection.items = [];
@@ -1341,6 +1462,7 @@
 			_collection.items = [];
 			_collection.render();
 		};
+
 
 		/**
 		 *
@@ -1438,6 +1560,9 @@
 			// if(!itemData.hasOwnProperty("type") && !itemData.hasOwnProperty("attributes") ) {
 			if(!itemData.hasOwnProperty("attributes") ) {
 				let tmp = {attributes:{}};
+				if(itemData.hasOwnProperty("type")) {
+					tmp.type = itemData.type;
+				}
 				Object.assign(tmp.attributes, itemData);
 				itemData = tmp;
 			}
@@ -1470,24 +1595,34 @@
 		 *
 		 * @param itemData
 		 */
-		_collection.createItem = function(itemData) {
-			return _collection.append(itemData);
+		_collection.createItem = function(itemData,sync=true) {
+			return _collection.append(itemData,sync);
 		};
 
 
 
-		_collection.append = function(itemData) {
+		_collection.append = function(itemData,sync) {
 			let jsonApiDoc = {data: parseData4InsertUpdate(itemData)};
+			if(_collection.type) {
+				jsonApiDoc.type = _collection.type;
+			}
 			let _self = this;
 
-			return new Promise(function (resolve,reject) {
-				if(!_self.insertUrl) {
+			if(!sync) {
+				return new Promise(function (resolve, reject) {
+					let newItem = _self.receiveRemoteData(jsonApiDoc);
+					resolve(newItem);
+				});
+			}
+
+			return new Promise(function (resolve, reject) {
+				if (!_self.insertUrl) {
 					_self.insertUrl = _self.url;
 				}
 				console.log(JSON.stringify(jsonApiDoc));
 
 				storage
-					.create(_self,_self.insertUrl,{contentType:"application/vnd.api+json"},JSON.stringify(jsonApiDoc))
+					.create(_self, _self.insertUrl, {contentType: "application/vnd.api+json"}, JSON.stringify(jsonApiDoc))
 					.then(function (resp) {
 						let data = resp.data;
 						let newItem = _self.receiveRemoteData(data);
@@ -1501,6 +1636,8 @@
 						console.log("finally recv data");
 					})
 			});
+
+
 		};
 
 		_collection.removeItem = function(item) {
@@ -1599,10 +1736,6 @@
 
 
 
-		let eventTypes = ['reset','render'];
-
-		Object.assign(_collectionView,EventsEmitter(eventTypes));
-
 		Object.assign(_collectionView,parseOptions(options));
 
 		_collectionView.dataBindings = getBoundObjects(_collectionView.el);
@@ -1698,7 +1831,8 @@
 	{
 
 		if(!this.length) {
-			throw "Invalid element for apiator";
+			console.log(this);
+			console.log("Warning: no DOM element bound with apiator");
 			// return console.log("Invalid element", opts, this);
 		}
 
@@ -1737,9 +1871,10 @@
 		}
 
 		// resource type unknown
-		if (!options.hasOwnProperty("resourcetype"))
-			throw new Error("Invalid resource type for APIATOR.JS (should be item or collection). " +
-				"Please define a valid resource on element "+this.attr("id"));
+		if (!options.hasOwnProperty("resourcetype")) {
+			options.resourcetype = "collection";
+			console.log("WARNING: no resourcetype specified. Assumed it's a collection");
+		}
 
 
 
@@ -1797,7 +1932,9 @@
 		// extract template
 		// set default to innerHTML
 
-		let templateTxt = this[0].innerHTML;
+		let templateTxt = this.length ? this[0].innerHTML : null;
+		// console.log(templateTxt);
+		options.templateTxt = templateTxt;
 
 		if(options.hasOwnProperty("template")) {
 			let $tpl = $(options.template);
@@ -1808,15 +1945,17 @@
 			$tpl.remove();
 		}
 
-		templateTxt = templateTxt
-			.replace(/&lt;/gi, '<')
-			.replace(/&gt;/gi, ">")
-			.replace(/&apos;/gi, "'")
-			.replace(/&quot;/gi, '"')
-			.replace(/&nbsp;/gi, " ")
-			.replace(/&amp;/gi, "&");
-		options.template = _.template(templateTxt);
-
+		options.template = null;
+		if(templateTxt!==null) {
+			templateTxt = templateTxt
+				.replace(/&lt;/gi, '<')
+				.replace(/&gt;/gi, ">")
+				.replace(/&apos;/gi, "'")
+				.replace(/&quot;/gi, '"')
+				.replace(/&nbsp;/gi, " ")
+				.replace(/&amp;/gi, "&");
+			options.template = _.template(templateTxt);
+		}
 
 		let collectionConfig = {
 			el: this,
@@ -1961,14 +2100,18 @@
 		let container = options.hasOwnProperty("container") ? $(options.container) : this;
 
 		// extract template
-		let templateTxt = this[0].outerHTML
-			.replace(/&lt;/gi, '<')
-			.replace(/&gt;/gi, ">")
-			.replace(/&apos;/gi, "'")
-			.replace(/&quot;/gi, '"')
-			.replace(/&nbsp;/gi, " ")
-			.replace(/&amp;/gi, "&");
-		options.template = _.template(templateTxt);
+		options.template = null;
+		if(this.length) {
+			let templateTxt = this[0].outerHTML
+				.replace(/&lt;/gi, '<')
+				.replace(/&gt;/gi, ">")
+				.replace(/&apos;/gi, "'")
+				.replace(/&quot;/gi, '"')
+				.replace(/&nbsp;/gi, " ")
+				.replace(/&amp;/gi, "&");
+			options.template = _.template(templateTxt);
+		}
+		// options.template = template(templateTxt);
 
 		return Item(options).bindView(ItemView({
 			template: options.template,
@@ -2128,6 +2271,7 @@
 		filterForm
 			.data("instance",collection)
 			.on("submit",function (e) {
+				console.log("Filter form was submited");
 				e.preventDefault();
 				let filter = [];
 				let frm = filterForm[0];
