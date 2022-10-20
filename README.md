@@ -9,6 +9,10 @@ Jquery Plugin for creating dynamic template driven webviews from a JSONAPI compa
 ## Example
 See included demo.html
 
+To use demo1.html you need to install dependencies with npm. So run
+
+    npm install
+
 ## Usage
     $(jquery_selector).apiator(options)
     
@@ -21,9 +25,6 @@ A set of key/value pairs that configure the request. Most of them can be supplie
     Can be either _item_ or _collection_
     
 **filter** (mandatory) 
-    Can be either _item_ or _collection_
-
-**pagination** (mandatory) 
     Can be either _item_ or _collection_
 
 **pagination** (mandatory) 

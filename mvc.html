@@ -1,0 +1,169 @@
+<html>
+    <head>
+        <title></title>
+    </head>
+    <body>
+        <dl id="angajatView">
+            <dt>Nume</dt>
+            <dd>{%=nume%}</dd>
+            <dt>Prenume</dt>
+            <dd>{%=prenume%}</dd>
+            <dt>Superior</dt>
+            <dd>{%=prenume%}</dd>
+        </dl>
+        <script src="node_modules/jquery/dist/jquery.js"></script>
+        <script>
+            
+            function model(params) {
+                const self = this;
+                // valideaza ca parametri sunt un plain object
+                if(!params || params.constructor!=Object) {
+                    throw "Invalid parameters";
+                }
+
+                Object.assign(this,params);
+
+                // verifica daca view-ul a fost setat
+                if(!this.view) {
+                    throw "View not defined";
+                }
+                // seteaza modelul view-ului
+                this.view.bindModel(this);
+               
+
+                /**
+                 *  functie care extrage datele de pe server si le asigneaza la model
+                 */
+                async function fetchData(url) {
+                    try {
+                        let resp = await fetch(url);
+                        console.log(resp);
+                        if(resp.status!==200) {
+                            throw "Not found";
+                        }
+                        let json = await resp.json();
+                        console.log(json);
+                        self.data = json.data.attributes;
+                        self.id = json.data.id;
+                        self.view.render();
+                    }
+                    catch(e) {
+                        console.log(e)
+                    }
+                }
+
+                async function updateData(url,data,onsuccess,onfail) {
+                    try {
+                        let resp = await fetch(url,{
+                            method: "PATCH",
+                            body: JSON.stringify(data),
+                            headers: {
+                                "Content-type":"application/vnd.api+json"
+                            },
+                        });
+
+                        if(resp.status!==200) {
+                            throw "Not found";
+                        }
+                        let json = await resp.json();
+                        console.log(json);
+                        self.data = json.data.attributes;
+                        self.id = json.data.id;
+                        if(typeof onsuccess==="function")
+                            onsuccess();
+                    }
+                    catch(e) {
+                        if(typeof onfail==="function")
+                            onfail(e);
+                    }
+
+                }
+
+
+                if(this.url) {
+                    console.log(this.url);
+                    fetchData(this.url);
+                } else if(this.data) {
+                    this.view.render();
+                }
+
+                this.remove = function(){
+
+                }
+
+                this.update = function(data){
+                    Object.assign(this.data,data);
+                    const patchData = {
+                            data: {
+                                id: self.id,
+                                attributes: self.data
+                            }
+                        };
+                    try {
+                        updateData(this.url,patchData,()=>self.view.render());
+                        
+                    }
+                    catch(e) {
+                        console.log(e);
+                    }
+                    
+                }
+            }
+
+            function view(template,container) {
+                this.template = template;
+                this.container = container;
+                this.model = null;
+                let self = this;
+                let element = null;
+
+                this.bindModel = function(model) {
+                    this.model = model;
+                }
+
+                this.render = function(container){
+                    console.log("do render");
+                    let html = this.template;
+                    let props = Object.getOwnPropertyNames(this.model.data);
+                    console.log(props);
+                    props.forEach(function(item){
+                        if(typeof self.model[item]===Function) return;
+                        let rgx = new RegExp("\{\%\="+item+"\%\}","g");
+                        console.log(rgx);
+                        html = html.replaceAll(rgx,self.model.data[item])
+                    });
+                    console.log(html);
+
+                    if(this.element==null)  {
+                        this.element = $(html).appendTo(container?container:this.container);
+                    }
+                    else {
+                        newElement = $(html);
+                        this.element.replaceWith(html);
+                        this.element = newElement;
+                    }
+                };
+
+                this.remove = function(){
+                    
+                }
+            }
+
+            let myModel;
+            function controller() {
+                let tpl = $("#angajatView").remove();
+                template = tpl[0].outerHTML;
+                console.log(template);
+
+                myView = new view(template,$("body"));
+                console.log(myView);
+                myModel = new model({view:myView,url:"http://172.16.20.213/dbapi/v2/mgmt/angajati/2"})
+            }
+
+
+            controller();
+
+
+        </script>
+    </body>
+</html>

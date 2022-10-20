@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>text</title>
+        <link rel="stylesheet" href="node_modules/bootstrap/dist/css/bootstrap.min.css">
+        <link rel="stylesheet" href="node_modules/font-awesome/css/font-awesome.css">
+        <style>
+            .image-cropper {
+                width: 100px;
+                overflow: hidden;
+                border-radius: 50%;
+            }
+
+            img {
+                margin: 0 auto;
+                height: 100%;
+                width: auto;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <form id="filterForm"><input type="submit" name="sub" style="display: none"></form>
+            <table class="table table-sm">
+                <thead id="header">
+                <tr>
+                    <th>
+                        <a class="text-secondary" data-sortfld="id">
+                            <span>ID</span>
+                            <i class="fa fa-sort-up sort-up" style="display: none;"></i>
+                            <i class="fa fa-sort-down sort-down" style="display: none;"></i>
+                            <i class="fa fa-sort sort-default text-light" style=""></i>
+                        </a>
+                    </th>
+                    <th>
+                        <a class="text-secondary" data-sortfld="nume">
+                            <span>Nume</span>
+                            <i class="fa fa-sort-up sort-up" style="display: none;"></i>
+                            <i class="fa fa-sort-down sort-down" style="display: none;"></i>
+                            <i class="fa fa-sort sort-default text-light" style=""></i>
+                        </a>
+                        <input type="text" class="form-control" form="filterForm" name="nume" onkeyup="this.form.sub.click()" data-operator='~=~'>
+                    </th>
+                    <th>
+                        <a class="text-secondary" data-sortfld="name">
+                            <span>Prenume</span>
+                            <i class="fa fa-sort-up sort-up" style="display: none;"></i>
+                            <i class="fa fa-sort-down sort-down" style="display: none;"></i>
+                            <i class="fa fa-sort sort-default text-light" style=""></i>
+                        </a>
+                        <input type="text" class="form-control" form="filterForm" name="prenume" onkeyup="this.form.sub.click()" data-operator='~=~'>
+                    </th>
+                    <th>
+                        <a class="text-secondary" data-sortfld="name">
+                            <span>Superiorul</span>
+                            <i class="fa fa-sort-up sort-up" style="display: none;"></i>
+                            <i class="fa fa-sort-down sort-down" style="display: none;"></i>
+                            <i class="fa fa-sort sort-default text-light" style=""></i>
+                        </a>
+                        <select id="superiorSelect" form="filterForm" class="form-select" onchange="this.form.sub.click()" name="superiorul">
+                            <option value="<%=id%>"><%=attributes.nume%> <%=attributes.prenume%></option>
+                        </select>
+                    </th>
+                    <th>Action</th>
+                </tr>
+                </thead>
+                <tbody id="angajatiList" data-paging="#paging" data-type="angajati" data-sort="#header" data-filter="#filterForm">
+                <tr>
+                    <td><%=id%></td>
+                    <td><%=attributes.nume%></td>
+                    <td><%=attributes.prenume%></td>
+                    <td><%=relationships.superiorul && !relationships.superiorul.hasOwnProperty('data') ?  relationships.superiorul.attributes.nume : '-'%></td>
+                    <td><button type="button" onclick="if(confirm('Sigur vrei sa stergi?')) $(this).data('instance').delete()">Delete</button></td>
+                </tr>
+                </tbody>
+                <tfoot>
+                <tr><td>
+                    <div class="btn-group" id="paging" data-pagesize="5">
+                        <button name="first" class="btn btn-outline-secondary" title="0">&lt;&lt;</button>
+                        <button name="prev" class="btn btn-outline-secondary" title="-20">&lt;</button>
+                        <button name="page" class="btn btn-outline-secondary" title="0">1</button>
+                        <button name="next" class="btn btn-outline-secondary" title="20">&gt;</button>
+                        <button name="last" class="btn btn-outline-secondary" title="140">&gt;&gt;</button>
+                    </div>
+                </td></tr>
+                </tfoot>
+            </table>
+
+            <div class="row">
+                <div class="col-3">
+                    <div class="card mt-5" id="angajat">
+                        <div class="card-header text-center">
+                            <img src="face-02.jpg" width="300" class="image-cropper"><br>
+                            <%=attributes.nume%> <%=attributes.prenume%><br>
+                        </div>
+                        <div class="card-body">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <script src="node_modules/jquery/dist/jquery.js"></script>
+        <script src="node_modules/underscore/underscore-min.js"></script>
+        <script src="apiator.new.js"></script>
+        <script>
+            $("#angajatiList").apiator("http://172.16.20.213/dbapi/v2/mgmt/angajati?page[angajati][limit]=5&include=superiorul");
+
+            $("#superiorSelect").apiator({returninstance: true}).setUrl("http://172.16.20.213/dbapi/v2/mgmt/shefi").loadFromRemote().then(function (data) {
+                $("#superiorSelect")[0].selectedIndex = -1;
+            });
+
+            $("#angajat").apiator("http://172.16.20.213/dbapi/v2/mgmt/angajati/2");
+
+            function showInstance(item) {
+                console.log(item);
+                console.log($(item).data("instance"));
+            }
+        </script>
+
+    </body>
+</html>

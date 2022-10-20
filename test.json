@@ -1,0 +1,23 @@
+{
+    "data": {
+        "id": "2",
+        "type": "angajati",
+        "attributes": {
+            "functia": "marketing",
+            "id": "2",
+            "nume": "bogdan",
+            "prenume": "cerve",
+            "salariul": null,
+            "telefon": null,
+            "superiorul": {
+                "data": {
+                    "id": "1",
+                    "type": "angajati"
+                }
+            },
+            "angajati": [],
+            "facturi": []
+        }
+    },
+    "jsonapi": "1.0"
+}

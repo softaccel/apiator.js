@@ -1,0 +1,23 @@
+{
+  "name": "apiator",
+  "description": "DBAPI Client JQuery Plugin",
+  "main": "apiator.js",
+  "authors": [
+    "Sergiu Voicu <sergiu.voicu@softaccel.net>"
+  ],
+  "license": "ISC",
+  "keywords": [
+    "jquery",
+    "api",
+    "client",
+    "jsonapi"
+  ],
+  "homepage": "https://github.com/vsergione/apiator.js",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ]
+}
