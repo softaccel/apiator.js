@@ -1,19 +1,33 @@
 {
-  "name": "apiator",
+  "name": "apiator.js",
   "version": "1.0.0",
-  "description": "DBAPI Client JQuery Plugin",
+  "description": "Apiator.js is a JavaScript library that provides an easy way to work with JSON API resources. It offers a simple interface for handling collections and items, with support for pagination, filtering, and sorting.",
   "main": "apiator.js",
+  "dependencies": {
+    "bootstrap": "^5.2.2",
+    "font-awesome": "^4.7.0",
+    "fontawesome": "^5.6.3",
+    "jquery": "^3.6.1",
+    "jquery-ui": "^1.13.2",
+    "underscore": "^1.13.6"
+  },
+  "devDependencies": {},
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/vsergione/apiator.js.git"
+    "url": "git+https://github.com/softaccel/apiator.js.git"
   },
-  "author": "",
-  "license": "ISC",
+  "keywords": [
+    "jsonapi",
+    "live",
+    "views"
+  ],
+  "author": "Sergiu Voicu",
+  "license": "MIT",
   "bugs": {
-    "url": "https://github.com/vsergione/apiator.js/issues"
+    "url": "https://github.com/softaccel/apiator.js/issues"
   },
-  "homepage": "https://github.com/vsergione/apiator.js#readme"
+  "homepage": "https://github.com/softaccel/apiator.js#readme"
 }
