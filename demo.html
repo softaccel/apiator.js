@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Demo</title>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="apiator.js"></script>
+    <style>
+        #demo>div{
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        #item input{
+            display: none;
+        }
+        #item #save{
+            display: none;
+        }
+        #item.editing input{
+            display: block;
+        }
+        #item.editing span{
+            display: none;
+        }
+        #item.editing #save{
+            display: block;
+        } 
+        #item.editing #load{
+            display: none;
+        }
+        .paging .active{
+            background-color: #a00404;
+            color: #fff;
+        }
+    </style>
+</head>
+<body>
+    
+    <div id="demo" style="display: flex; flex-direction: row; gap: 10px;">
+        <!-- Item Demo -->
+        <div id="item">
+            <h3>Item</h3>
+            <form>
+                <dl>
+                    <dt>Name</dt>
+                    <dd><span>{{=attributes.name}}</span><input type="text" value="{{=attributes.name}}"></dd>
+                    <dt>Email</dt>
+                    <dd><span>{{=attributes.email}}</span><input type="text" value="{{=attributes.email}}"></dd>
+                    <dt>Friends</dt>
+                    <dd>
+                        <!-- {{ for(var i=0;i < relationships.friends.length;i++){ }} -->
+                            {{=relationships.friends[i].attributes.name}}
+                        <!-- {{ } }} -->
+                    </dd>   
+                </dl>
+            </form>
+            <button id="load" onclick="this.parentNode.classList.add('editing')">Update</button>
+            <button id="save" onclick="this.parentNode.classList.remove('editing')">Save</button>
+        </div>
+        
+        <!-- Collection demo -->
+        <div>
+            <h3>Collection</h3>
+            <ul id="collection" data-paging="#collection-paging">
+                <!-- ERB-style delimiters -->
+                <li><b><%=attributes.title%></b><br><%=attributes.description%> <button onclick="$(this).data().instance.delete()">Delete</button></li>
+            </ul>
+            <div id="collection-paging" class="paging">
+                <button name="first">&lt;&lt;</button>
+                <button name="prev">&lt;</button>
+                <button name="page">0</button>
+                <button name="next">&gt;</button>
+                <button name="last">&gt;&gt;</button>
+            </div>
+        </div>
+    </div>
+    <script language="javascript">
+        
+        let oldSettings = $.fn.apiator.templateSettings;
+        
+        $.fn.apiator.templateSettings = {
+            evaluate: /\{\{([\s\S]+?)\}\}/g,
+            interpolate: /\{\{=([\s\S]+?)\}\}/g
+        };
+        $("#item").apiator({
+            resourcetype: "item",
+            url: "item.json",
+            on: function(item){
+                console.log(item);
+            }
+        });
+
+        $.fn.apiator.baseUrl = "http://localhost/dbapi/apis/booksmgmt/data";
+        $.fn.apiator.templateSettings = oldSettings;
+        $("#collection").apiator2collection("/books?page[books][limit]=10&page[books][offset]=40");
+    </script>
+</body>
+</html>

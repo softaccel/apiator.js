@@ -1,5 +1,179 @@
 apiatorDebug = false;
 (function ($) {
+     /**
+     * 
+     * @param opts
+     * @returns {$|void}
+     */
+     $.fn.apiator = function (opts)
+     {
+         if(!this.length) {
+             if(apiatorDebug) console.log("Warning: no DOM element bound with apiator",this);
+         }
+ 
+         if(typeof opts==="string") {
+             opts = {
+                 url: opts,
+             }
+         }
+ 
+         // extract data attributes from html element and assign them to
+         let options = Object.assign({dataBindings: {},addontop:false}, this.data());
+ 
+         // assign options passed as
+         try {
+             Object.assign(options, parseOptions(opts));
+         }
+         catch (e) {
+             throw ["Error on Apiator init",e];
+         }
+ 
+ 
+ 
+         if (this.data("instance") !== undefined) {
+             let instance = this.data("instance");
+ 
+             if(options.url) {
+                 instance.setUrl(options.url);
+                 delete options.url;
+             }
+ 
+             Object.assign(instance,parseOptions(options));
+ 
+             return options.returninstance ? instance : this;
+         }
+ 
+         if(apiatorDebug) console.log("init apiator on ",this,options);
+ 
+         if(options.hasOwnProperty("emptyview")) {
+             options.emptyview = $(options.emptyview).remove();
+         }
+ 
+         // resource type unknown
+         if (!options.hasOwnProperty("resourcetype")) {
+             options.resourcetype = "collection";
+             if(apiatorDebug) console.log("WARNING: no resourcetype specified. Assumed it's a collection");
+         }
+         let listeners = options.on;
+         delete options.on;
+ 
+ 
+         let instance;
+         switch ( options.resourcetype) {
+             case "collection":
+                 instance = createCollectionInstance.bind(this)(this,options);
+                 break;
+             case "item":
+                 instance = createItemInstance.bind(this)(this,options);
+                 break;
+             default:
+                 throw new Error("Invalid resource type for APIATOR.JS (should be item or collection)." +
+                     " Please define a valid resource on element "+this.attr("id"));
+         }
+ 
+         if(listeners) {
+             Object.getOwnPropertyNames(listeners).forEach((eventName)=>{
+                 instance.on(eventName,listeners[eventName]);
+             });
+         }
+ 
+ 
+         this.data("instance",instance);
+ 
+         console.log("instance",instance.url);
+ 
+         if(instance.url && (typeof instance.dontload==="undefined" || !instance.dontload)) {
+             instance.loadFromRemote()
+         }
+ 
+         return (options.hasOwnProperty("returninstance") && opts.returninstance) ? instance : this;
+     };
+
+
+    $.fn.apiator.templateSettings = {
+        evaluate: /<%([\s\S]+?)%>/g,
+        interpolate: /<%=([\s\S]+?)%>/g,
+        escape: /<%-([\s\S]+?)%>/g
+    };
+    $.fn.apiator.baseUrl = null;
+    function _$1(obj) {
+        if (obj instanceof _$1) return obj;
+        if (!(this instanceof _$1)) return new _$1(obj);
+        this._wrapped = obj;
+      }
+    function template(text, newSettings={}) {
+
+
+        var noMatch = /(.)^/;
+        function escapeChar(match) {
+            return '\\' + escapes[match];
+          }
+
+        let settings = Object.assign({}, $.fn.apiator.templateSettings);
+        Object.assign(settings, newSettings);
+
+        // Combine delimiters into one regular expression via alternation.
+        var matcher = RegExp([
+            (settings.escape || noMatch).source,
+            (settings.interpolate || noMatch).source,
+            (settings.evaluate || noMatch).source
+        ].join('|') + '|$', 'g');
+
+        // Compile the template source, escaping string literals appropriately.
+        var index = 0;
+        var source = "__p+='";
+        text.replace(matcher, function(match, escape, interpolate, evaluate, offset) {
+            source += text.slice(index, offset).replace(escapeRegExp, escapeChar);
+            index = offset + match.length;
+
+            if (escape) {
+            source += "'+\n((__t=(" + escape + "))==null?'':_.escape(__t))+\n'";
+            } else if (interpolate) {
+            source += "'+\n((__t=(" + interpolate + "))==null?'':__t)+\n'";
+            } else if (evaluate) {
+            source += "';\n" + evaluate + "\n__p+='";
+            }
+
+            // Adobe VMs need the match returned to produce the correct offset.
+            return match;
+        });
+        source += "';\n";
+
+        var argument = settings.variable;
+        if (argument) {
+            // Insure against third-party code injection. (CVE-2021-23358)
+            if (!bareIdentifier.test(argument)) throw new Error(
+            'variable is not a bare identifier: ' + argument
+            );
+        } else {
+            // If a variable is not specified, place data values in local scope.
+            source = 'with(obj||{}){\n' + source + '}\n';
+            argument = 'obj';
+        }
+
+        source = "var __t,__p='',__j=Array.prototype.join," +
+            "print=function(){__p+=__j.call(arguments,'');};\n" +
+            source + 'return __p;\n';
+
+        var render;
+        try {
+            render = new Function(argument, '_', source);
+        } catch (e) {
+            e.source = source;
+            throw e;
+        }
+
+        var template = function(data) {
+            return render.call(this, data, _$1);
+        };
+
+        // Provide the compiled source as a convenience for precompilation.
+        template.source = 'function(' + argument + '){\n' + source + '}';
+
+        return template;
+    }
+
+
     let overlay = $("<div>").text("Se incarca").addClass("komponent-overlay").attr("style","background: silver; text-align: center;position:absolute; z-index:100000");
     ()=>{
         function template_engine(template,varStart="{{",varStop="}}",xprStart="{(",xprStop=")}") {
@@ -1212,7 +1386,7 @@ apiatorDebug = false;
                 .replace(/&amp;/gi, "&");
 
             params = {
-                template: _.template(html),
+                template: template(html),
                 el: $el
             };
             if($el.attr("id")) {
@@ -1749,6 +1923,10 @@ apiatorDebug = false;
     function Collection(opts)
     {
 
+        let allowedOptions = ["url","deleteUrl","insertUrl","updateUrl","paging"
+            ,"view","offset","pageSize","template","type","emptyview","filter","pagesize",
+            "resourcetype","dataBindings","addontop","template"];
+
         let iterator = -1;
         let _collection = {
             url: null,
@@ -1780,7 +1958,7 @@ apiatorDebug = false;
         _collection.showlisteners = function() {
             console.log(callbacks);
         };
-        _collection.forEach = function(func) {
+        _collection.each = function(func) {
             for(let i=0;i<_collection.length;i++) {
                 func(_collection[i]);
             }
@@ -1802,7 +1980,7 @@ apiatorDebug = false;
             return  _collection[iterator];
         };
         _collection.rewind = function() {
-            iterator = 0;
+            iterator = -1;
         };
         _collection.key = function() {
             return iterator;
@@ -1856,9 +2034,12 @@ apiatorDebug = false;
         };
 
         _collection.setUrl = function(url) {
+            
             if(!url) {
                 return ;
             }
+            
+            
             if(url.constructor===String || url.hasOwnProperty("fqdn")) {
                 this.url = URL(url);
                 this.setPageSize(this.url.parameters["page["+_collection.type+"][limit]"]);
@@ -1881,7 +2062,9 @@ apiatorDebug = false;
             if(url.hasOwnProperty("insertUrl"))
                 this.insertUrl = URL(url.insertUrl);
 
-            this.type = this.url.path.split("/").pop();
+            
+          
+            this.type = this.url.path.split("/").pop().split("?")[0].split("#")[0];
             return this;
         };
 
@@ -1894,8 +2077,21 @@ apiatorDebug = false;
 
 
 
-        Object.assign(_collection,opts);
+        let options = {};
+        console.log(opts,Object.getOwnPropertyNames(opts));
+        
+        Object.getOwnPropertyNames(opts).forEach(function(key){
+            if(allowedOptions.indexOf(key)!==-1)    
+                options[key] = opts[key];
+        })
 
+
+        //console.log(options,opts,Object.keys(options),Object.keys(opts));
+        
+        Object.assign(_collection,options);
+        //Object.assign(_collection,opts);
+
+        
         _collection.setUrl(_collection.url);
         // _collection.url = URL(_collection.url);
         if(_collection.deleteUrl) {
@@ -2245,6 +2441,11 @@ apiatorDebug = false;
         _collection.getUtilities = function () {
             return utilities;
         };
+        if(typeof opts.listeners==="object"){
+            for(let event in _collection.listeners){
+                _collection.on(event,_collection.listeners[event]);
+            }
+        }
 
         return _collection;
     }
@@ -2480,7 +2681,7 @@ apiatorDebug = false;
                 .replace(/&amp;/gi, "&");
             // if(apiatorDebug) console.log("Template txt",templateTxt);
 
-            options.template = _.template(templateTxt);
+            options.template = template(templateTxt);
         }
 
         let collectionConfig = {
@@ -2557,7 +2758,7 @@ apiatorDebug = false;
                 .replace(/&quot;/gi, '"')
                 .replace(/&nbsp;/gi, " ")
                 .replace(/&amp;/gi, "&");
-            options.template = _.template(templateTxt);
+            options.template = template(templateTxt);
         }
         // options.template = template(templateTxt);
 
@@ -2793,6 +2994,9 @@ apiatorDebug = false;
          * @returns {Promise<unknown>}
          */
         _storage.sync = function (options) {
+            if($.fn.apiator.baseUrl){
+                options.url = $.fn.apiator.baseUrl + options.url;
+            }
             options = Object.assign(
                 Object.assign({},defaultOptions),
                 parseOptions(options)
@@ -2908,95 +3112,7 @@ apiatorDebug = false;
         // after the decimal.
         return "uid_" + Math.random().toString(36).substr(2, 9);
     }
-
-    /**
-     *
-     * @param opts
-     * @returns {$|void}
-     */
-    $.fn.apiator = function (opts)
-    {
-        if(!this.length) {
-            if(apiatorDebug) console.log("Warning: no DOM element bound with apiator",this);
-        }
-
-        if(typeof opts==="string") {
-            opts = {
-                url: opts,
-            }
-        }
-
-        // extract data attributes from html element and assign them to
-        let options = Object.assign({dataBindings: {},addontop:false}, this.data());
-
-        // assign options passed as
-        try {
-            Object.assign(options, parseOptions(opts));
-        }
-        catch (e) {
-            throw ["Error on Apiator init",e];
-        }
-
-
-
-        if (this.data("instance") !== undefined) {
-            let instance = this.data("instance");
-
-            if(options.url) {
-                instance.setUrl(options.url);
-                delete options.url;
-            }
-
-            Object.assign(instance,parseOptions(options));
-
-            return options.returninstance ? instance : this;
-        }
-
-        if(apiatorDebug) console.log("init apiator on ",this,options);
-
-        if(options.hasOwnProperty("emptyview")) {
-            options.emptyview = $(options.emptyview).remove();
-        }
-
-        // resource type unknown
-        if (!options.hasOwnProperty("resourcetype")) {
-            options.resourcetype = "collection";
-            if(apiatorDebug) console.log("WARNING: no resourcetype specified. Assumed it's a collection");
-        }
-        let listeners = options.on;
-        delete options.on;
-
-
-        let instance;
-        switch ( options.resourcetype) {
-            case "collection":
-                instance = createCollectionInstance.bind(this)(this,options);
-                break;
-            case "item":
-                instance = createItemInstance.bind(this)(this,options);
-                break;
-            default:
-                throw new Error("Invalid resource type for APIATOR.JS (should be item or collection)." +
-                    " Please define a valid resource on element "+this.attr("id"));
-        }
-
-        if(listeners) {
-            Object.getOwnPropertyNames(listeners).forEach((eventName)=>{
-                instance.on(eventName,listeners[eventName]);
-            });
-        }
-
-
-        this.data("instance",instance);
-
-        console.log("instance",instance.url);
-
-        if(instance.url && (typeof instance.dontload==="undefined" || !instance.dontload)) {
-            instance.loadFromRemote()
-        }
-
-        return (options.hasOwnProperty("returninstance") && opts.returninstance) ? instance : this;
-    };
+   
 
     $.fn.apiator2collection = function(opts) {
         let options = {
@@ -3047,7 +3163,7 @@ apiatorDebug = false;
             opts.type="collection";
 
         if(opts.resourcetype==="collection" && opts.url)
-            opts.type = opts.url.split("/").pop();
+            opts.type = opts.url.split("/").pop().split("?")[0].split("#")[0];
 
 
         if(typeof dbApiBaseUrl!=="undefined" && typeof opts.url!=="undefined")
@@ -3076,3 +3192,6 @@ class ApiatorItem {
 
     }
 }
+
+
+

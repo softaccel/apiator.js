@@ -1,0 +1,30 @@
+{
+    "data":{
+        "id": 1,
+        "type": "users",
+        "attributes": {
+            "name": "John Doe",
+            "email": "john.doe@example.com"
+        },
+        "relationships": {
+            "friends": {
+                "data": [
+                    {
+                        "id": 2,   
+                        "type": "users"
+                    }
+                ]
+            }
+        }
+    },
+    "includes": [
+        {
+            "id": 2,
+            "type": "users",
+            "attributes": {
+                "name": "Jane Doe",
+                "email": "jane.doe@example.com"
+            }
+        }
+    ]   
+}

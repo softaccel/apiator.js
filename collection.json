@@ -1,0 +1,34 @@
+{
+  "data": [
+    {
+      "type": "articles",
+      "id": "1",
+      "attributes": {
+        "title": "Introduction to JSON API",
+        "description": "Learn the basics of JSON API specification",
+        "author": "John Doe",
+        "publishedAt": "2024-01-15T08:00:00Z"
+      }
+    },
+    {
+      "type": "articles",
+      "id": "2",
+      "attributes": {
+        "title": "Working with Apiator.js",
+        "description": "A comprehensive guide to using Apiator.js library",
+        "author": "Jane Smith",
+        "publishedAt": "2024-01-16T10:30:00Z"
+      }
+    },
+    {
+      "type": "articles",
+      "id": "3",
+      "attributes": {
+        "title": "Advanced Templating",
+        "description": "Deep dive into template rendering with Apiator.js",
+        "author": "Mike Johnson",
+        "publishedAt": "2024-01-17T14:15:00Z"
+      }
+    }
+  ]
+} 

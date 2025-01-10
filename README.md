@@ -1,6 +1,6 @@
 # Apiator.js
 
-Apiator.js is a JavaScript library that provides an easy way to work with JSON API resources. It offers a simple interface for handling collections and items, with support for pagination, filtering, and sorting.
+Apiator.js is a JavaScript library that uses template-based rendering to display JSON API resources in your web applications. It combines the power of templating with a simple interface for handling collections and items, making it easy to present and manage API data with support for pagination, filtering, and sorting.
 
 ## Features
 
@@ -36,8 +36,8 @@ Include the required dependencies and apiator.js in your HTML:
 // Using jQuery plugin syntax
 $("#my-collection").apiator({
     url: "/api/resources",
-    resourcetype: "collection", // default is collection when not specified 
-    template: "#item-template" // default is content of the  selected jQuery element when not specified    
+    resourcetype: "collection", // default is "collection" when not specified 
+    template: "#item-template" // default is the content of the  selected jQuery element when not specified    
 });
 
 // Alternative syntax
@@ -117,10 +117,3 @@ $("#my-collection").apiator({
 - `delete()`: Delete the item
 - `render()`: Re-render the item
 
-## Debug Mode
-
-Enable debug mode to see detailed logs:
-
-```javascript
-apiatorDebug = true;
-```
